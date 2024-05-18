@@ -28,7 +28,10 @@ defmodule Cluster.NodeCluster do
       if status == :ok do
         Node.set_cookie(:PLXATUNGSDBIRVZNZSKB)
 
-        _ = Node.connect(:"nerves@#{"192.168.0.6"}")
+        reference_node = System.get_env("REFERENCE_NODE")
+        reference_node = if reference_node == nil, do: :"nerves@192.168.0.6", else: reference_node
+        reference_node = if is_atom(reference_node), do: reference_node, else: String.to_atom(reference_node)
+        _ = Node.connect(reference_node)
 
         _ = Node.list()
         {status, "Node successfully configurated"}
@@ -42,10 +45,23 @@ defmodule Cluster.NodeCluster do
 
   def get_name_node(postfix) do
     if target() == :host do
-      name = if System.get_env("NODE_NAME") == nil, do: "nerves", else: System.get_env("NODE_NAME")
+      name =
+        if System.get_env("NODE_NAME") == nil, do: "nerves", else: System.get_env("NODE_NAME")
+
       :"#{name}@#{postfix}"
     else
       :"#{Toolshed.hostname()}@#{postfix}"
+    end
+  end
+
+  def get_name_node do
+    if target() == :host do
+      name =
+        if System.get_env("NODE_NAME") == nil, do: "nerves", else: System.get_env("NODE_NAME")
+
+      "#{name}"
+    else
+      "#{Toolshed.hostname()}"
     end
   end
 

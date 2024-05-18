@@ -13,24 +13,13 @@ defmodule Crdt.TreeDoc do
   end
 
   @impl true
-  def handle_cast({:insert, {pos_id, message}}, tree_doc) do
-    {:noreply, Map.put_new(tree_doc, pos_id, {:active, message})}
-  end
+  def handle_call({:insert, {pos_id, message}}, _from, tree_doc) do
+    status = if Map.get(tree_doc, pos_id) == nil, do: :ok, else: :it_already_exists
 
-  @impl true
-  def handle_cast({:delete, pos_id}, tree_doc) do
     tree_doc =
-      case Map.get(tree_doc, pos_id) do
-        {_state, message} -> Map.put(tree_doc, pos_id, {:delete, message})
-        nil -> tree_doc
-      end
+      if status == :ok, do: Map.put_new(tree_doc, pos_id, {:active, message}), else: tree_doc
 
-    {:noreply, tree_doc}
-  end
-
-  @impl true
-  def handle_cast({:reset}, _) do
-    {:noreply, %{}}
+    {:reply, {status, pos_id}, tree_doc}
   end
 
   @impl true
@@ -38,12 +27,34 @@ defmodule Crdt.TreeDoc do
     {:reply, tree_doc, tree_doc}
   end
 
+  @impl true
+  def handle_call({:delete, pos_id}, _from, tree_doc) do
+    status = if Map.get(tree_doc, pos_id) == nil, do: :not_exists, else: :ok
+
+    tree_doc =
+      case status do
+        :ok ->
+          {_status, message} = Map.get(tree_doc, pos_id)
+          Map.put(tree_doc, pos_id, {:delete, message})
+
+        :not_exists ->
+          tree_doc
+      end
+
+    {:reply, {status, pos_id}, tree_doc}
+  end
+
+  @impl true
+  def handle_cast({:reset}, _) do
+    {:noreply, %{}}
+  end
+
   def insert(pos_id, message) do
-    GenServer.cast(@name_tree_doc, {:insert, {pos_id, message}})
+    GenServer.call(@name_tree_doc, {:insert, {pos_id, message}})
   end
 
   def delete(pos_id) do
-    GenServer.cast(@name_tree_doc, {:delete, pos_id})
+    GenServer.call(@name_tree_doc, {:delete, pos_id})
   end
 
   def get_tree_doc do
