@@ -62,6 +62,11 @@ defmodule Cluster.TaskCall do
     Task.await(task, :infinity)
   end
 
+  def run_spawn(node \\ nil, module, function_name, args) do
+    node = if node == nil, do: LoadBalancer.get_node(), else: node
+    Node.spawn(node, module, function_name, args)
+  end
+
   def run_sync_auto(node \\ nil, function, args) do
     task =
       Task.async(fn ->
